@@ -1,0 +1,10 @@
+{
+  "name": "Ceasa Delivery Pro",
+  "description": "Sistema de gestão de compras e entregas para o Ceasa, gerenciando listas do WhatsApp, separação por box e logística.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

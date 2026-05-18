@@ -1,0 +1,109 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function existing() { return resource.data; }
+    function incoming() { return request.resource.data; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'name', 'role', 'createdAt'])
+        && data.email is string && data.email.size() <= 150
+        && data.name is string && data.name.size() <= 100
+        && data.role in ['admin', 'picker', 'driver']
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidId(userId)
+                    && userId == request.auth.uid
+                    && isValidUser(incoming())
+                    && incoming().keys().size() == 4
+                    && incoming().createdAt == request.time;
+      
+      allow update: if isSignedIn()
+                    && isValidId(userId)
+                    && userId == request.auth.uid
+                    && isValidUser(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role'])
+                    && incoming().createdAt == existing().createdAt
+                    && incoming().email == existing().email;
+    }
+
+    // --- Order Validation ---
+    // order format
+    function isValidOrder(data) {
+      return data.keys().hasAll(['clientName', 'status', 'createdAt', 'createdBy'])
+        && data.clientName is string && data.clientName.size() <= 150
+        && data.status in ['pending', 'picking', 'ready', 'delivered']
+        && data.createdAt is timestamp
+        && data.createdBy is string && data.createdBy.size() <= 128
+        && data.get('originalText', '') is string && data.get('originalText', '').size() <= 6000
+        && data.get('nfNumber', '') is string && data.get('nfNumber', '').size() <= 50
+        && data.get('driverId', '') is string && data.get('driverId', '').size() <= 128
+        && data.get('deliveryNotes', '') is string && data.get('deliveryNotes', '').size() <= 1000
+        && data.get('deliveryPhotos', []) is list && data.get('deliveryPhotos', []).size() <= 5;
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidId(orderId)
+                    && isValidOrder(incoming())
+                    && incoming().createdBy == request.auth.uid
+                    && incoming().createdAt == request.time
+                    && incoming().status == 'pending';
+      
+      allow update: if isSignedIn()
+                    && isValidId(orderId)
+                    && isValidOrder(incoming())
+                    && incoming().createdBy == existing().createdBy // immutable
+                    && incoming().createdAt == existing().createdAt // immutable
+                    && (
+                      // Update status, nfNumber, driver, notes, photos
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'nfNumber', 'driverId', 'deliveryNotes', 'deliveryPhotos', 'deliveryStartedAt', 'deliveryCompletedAt'])
+                    );
+    }
+
+    // --- OrderBlock Validation ---
+    function isValidOrderBlock(data) {
+      return data.keys().hasAll(['orderId', 'supplierName', 'status', 'items'])
+         && data.orderId is string && data.orderId.size() <= 128
+         && data.supplierName is string && data.supplierName.size() <= 100
+         && data.status in ['pending', 'picking', 'completed']
+         && data.items is list && data.items.size() <= 100
+         && data.get('pickerId', '') is string && data.get('pickerId', '').size() <= 128
+         && data.get('photos', []) is list && data.get('photos', []).size() <= 5;
+    }
+
+    match /order_blocks/{blockId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidId(blockId)
+                    && isValidOrderBlock(incoming())
+                    && incoming().status == 'pending'
+                    && exists(/databases/$(database)/documents/orders/$(incoming().orderId));
+      
+      allow update: if isSignedIn()
+                    && isValidId(blockId)
+                    && isValidOrderBlock(incoming())
+                    && incoming().orderId == existing().orderId // immutable
+                    && incoming().supplierName == existing().supplierName // immutable
+                    && (
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pickerId', 'arrivedAt', 'completedAt', 'photos', 'items'])
+                    );
+    }
+  }
+}

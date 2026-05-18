@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users (Admin, Helper, Driver)",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "picker", "driver"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A purchasing list uploaded by an Admin",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string", "maxLength": 150 },
+        "originalText": { "type": "string", "maxLength": 5000 },
+        "status": { "type": "string", "enum": ["pending", "picking", "ready", "delivered"] },
+        "nfNumber": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "driverId": { "type": "string", "maxLength": 128 },
+        "deliveryStartedAt": { "type": "string", "format": "date-time" },
+        "deliveryCompletedAt": { "type": "string", "format": "date-time" },
+        "deliveryNotes": { "type": "string", "maxLength": 1000 },
+        "deliveryPhotos": { "type": "array", "maxItems": 5, "items": { "type": "string" } }
+      },
+      "required": ["clientName", "status", "createdAt", "createdBy"]
+    },
+    "OrderBlock": {
+      "title": "OrderBlock",
+      "description": "A block of items from a specific supplier within an order",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "supplierName": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["pending", "picking", "completed"] },
+        "items": { "type": "string" }, 
+        "pickerId": { "type": "string", "maxLength": 128 },
+        "arrivedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "photos": { "type": "array", "maxItems": 5, "items": { "type": "string" } }
+      },
+      "required": ["orderId", "supplierName", "status", "items"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Delivery orders"
+    },
+    "/order_blocks/{blockId}": {
+      "schema": { "$ref": "#/entities/OrderBlock" },
+      "description": "Specific supplier blocks for an order. Stored top-level for easier global queries by picker."
+    }
+  }
+}
