@@ -3,10 +3,11 @@ import { useEffect } from 'react';
 import { useAuthStore } from './store/useAuthStore';
 import Login from './pages/Login';
 import DashboardRouter from './pages/DashboardRouter';
-import { motion, AnimatePresence } from 'motion/react';
+import Onboarding from './pages/Onboarding';
+import { AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const { initializeAuthListener, loading, user } = useAuthStore();
+  const { initializeAuthListener, loading, user, profile } = useAuthStore();
 
   useEffect(() => {
     initializeAuthListener();
@@ -20,12 +21,17 @@ export default function App() {
     );
   }
 
+  // Se logado mas sem companyId, renderizar apenas o Onboarding
+  if (user && profile && !profile.companyId) {
+    return <Onboarding />;
+  }
+
   return (
     <Router>
       <AnimatePresence mode="wait">
         <Routes>
-          <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-          <Route path="/*" element={user ? <DashboardRouter /> : <Navigate to="/login" />} />
+          <Route path="/login" element={user ? <Navigate to={"/" + window.location.search} /> : <Login />} />
+          <Route path="/*" element={user ? <DashboardRouter /> : <Navigate to={"/login" + window.location.search} />} />
         </Routes>
       </AnimatePresence>
     </Router>

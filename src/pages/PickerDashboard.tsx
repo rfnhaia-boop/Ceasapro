@@ -14,9 +14,12 @@ export default function PickerDashboard() {
   const { profile } = useAuthStore();
 
   useEffect(() => {
+    if (!profile?.companyId) return;
+
     // We get blocks that are either pending, or are being picked by current user
     const q = query(
        collection(db, 'order_blocks'),
+       where('companyId', '==', profile.companyId),
        where('status', 'in', ['pending', 'picking', 'completed']),
     );
     

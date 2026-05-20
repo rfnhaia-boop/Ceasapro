@@ -8,6 +8,7 @@ import PickerDashboard from './PickerDashboard';
 import BlockDetail from './BlockDetail';
 import DriverDashboard from './DriverDashboard';
 import DeliveryDetail from './DeliveryDetail';
+import { PurchaseDetails } from './PurchaseDetails';
 
 export default function DashboardRouter() {
   const { profile } = useAuthStore();
@@ -26,7 +27,7 @@ export default function DashboardRouter() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#fcfaf7] flex flex-col text-slate-800 font-sans pb-safe">
+    <div className={cn("min-h-screen flex flex-col font-sans pb-safe", location.pathname === '/' ? 'bg-[#090b10]' : 'bg-[#fcfaf7] text-slate-800')}>
       {/* Top Navigation Bar */}
       <header className="bg-slate-950 border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -83,6 +84,7 @@ export default function DashboardRouter() {
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
         <Routes>
           {role === 'admin' && <Route path="/" element={<AdminDashboard />} />}
+          {role === 'admin' && <Route path="/admin/purchases/:id" element={<PurchaseDetails />} />}
           <Route path="/picker" element={<PickerDashboard />} />
           <Route path="/picker/block/:blockId" element={<BlockDetail />} />
           <Route path="/deliveries" element={<DriverDashboard />} />

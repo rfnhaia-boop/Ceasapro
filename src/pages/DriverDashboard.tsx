@@ -14,8 +14,11 @@ export default function DriverDashboard() {
   const { profile } = useAuthStore();
 
   useEffect(() => {
+    if (!profile?.companyId) return;
+
     const q = query(
        collection(db, 'orders'),
+       where('companyId', '==', profile.companyId),
        where('status', 'in', ['pending', 'picking', 'ready', 'delivered'])
     );
     const unsub = onSnapshot(q, (snap) => {

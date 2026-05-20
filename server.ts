@@ -58,6 +58,50 @@ ${text}` }] }
     }
   });
 
+  app.post('/api/parse-purchase', async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+           { role: 'user', parts: [{ text: `Parse the following Whatsapp purchase/supply list into a structured JSON format. 
+The list contains items grouped by destinations/stores/locations. Each location is usually a header like "MORADA SP:" or "MORADA JUNDIAI:".
+Inside each location, there are items, often with a supplier name in parentheses at the end or middle of the line (e.g. "(MAURO)"). If no supplier is found, use "Desconhecido".
+Return ONLY valid JSON that matches this schema:
+{
+  "destinations": [
+    {
+      "name": "String (e.g. MORADA SP)",
+      "items": [
+         { "supplier": "String", "name": "Item name without supplier or qty", "quantity": "Quantity string (e.g. 1Cx, 2Sc)" }
+      ]
+    }
+  ]
+}
+
+List:
+${text}` }] }
+        ],
+        config: {
+           responseMimeType: "application/json",
+        }
+      });
+
+      let jsonText = response.text;
+      if (!jsonText) throw new Error("No text returned");
+      jsonText = jsonText.replace(/^```json/im, '').replace(/```$/im, '').trim();
+      const parsedData = JSON.parse(jsonText);
+      res.json(parsedData);
+    } catch (error: any) {
+      console.error("Gemini API Error:", error);
+      res.status(500).json({ error: 'Failed to parse purchase list', details: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -1,13 +1,18 @@
 import { loginWithGoogle } from '../lib/firebase';
 import { motion } from 'motion/react';
-import { Truck, Package, Leaf } from 'lucide-react';
+import { Truck, Package, Leaf, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Login() {
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+
   const handleLogin = async () => {
     try {
+      setErrorDetails(null);
       await loginWithGoogle();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setErrorDetails(error.message || "Erro desconhecido ao fazer login.");
     }
   };
 
@@ -45,6 +50,27 @@ export default function Login() {
             >
               Entrar com Google
             </button>
+
+            {errorDetails && (
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex gap-3 text-red-600 text-sm">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-bold mb-1">Falha no Login</p>
+                  <p className="text-xs break-all mb-2">{errorDetails}</p>
+                  {errorDetails.includes('auth/unauthorized-domain') && (
+                     <p className="text-xs font-bold mt-2">
+                       Por favor, adicione este domínio ({window.location.hostname}) aos domínios autorizados no painel do Firebase Authentication.
+                     </p>
+                  )}
+                  {errorDetails.includes('popup') || errorDetails.includes('cross-origin') || errorDetails.includes('Firebase') ? (
+                     <p className="text-xs font-bold mt-2">
+                       Dica: Alguns navegadores bloqueiam popups de login dentro do preview. Se você estiver na janela de preview, clique no botão para "Abrir em nova guia" (ícone de seta com quadrado no canto superior direito do projeto) e tente novamente.
+                     </p>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-slate-100">
                <div className="flex flex-col items-center p-3 bg-[#fcfaf7] rounded-xl border border-slate-100 text-slate-500">
                  <Package className="w-6 h-6 mb-2 text-orange-500"/>

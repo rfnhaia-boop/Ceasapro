@@ -20,7 +20,8 @@ service cloud.firestore {
         && data.email is string && data.email.size() <= 150
         && data.name is string && data.name.size() <= 100
         && data.role in ['admin', 'picker', 'driver']
-        && data.createdAt is timestamp;
+        && data.createdAt is timestamp
+        && (data.keys().hasAny(['companyId']) ? data.companyId is string : true);
     }
 
     match /users/{userId} {
@@ -30,22 +31,59 @@ service cloud.firestore {
                     && isValidId(userId)
                     && userId == request.auth.uid
                     && isValidUser(incoming())
-                    && incoming().keys().size() == 4
                     && incoming().createdAt == request.time;
       
       allow update: if isSignedIn()
                     && isValidId(userId)
                     && userId == request.auth.uid
                     && isValidUser(incoming())
-                    && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role'])
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'companyId'])
                     && incoming().createdAt == existing().createdAt
                     && incoming().email == existing().email;
     }
 
+    // --- Companies ---
+    function isValidCompany(data) {
+      return data.keys().hasAll(['name', 'ownerId', 'inviteCode', 'createdAt'])
+        && data.name is string && data.name.size() <= 100
+        && data.ownerId is string && data.ownerId.size() <= 128
+        && data.inviteCode is string && data.inviteCode.size() <= 50
+        && data.createdAt is timestamp;
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidCompany(incoming())
+                    && incoming().ownerId == request.auth.uid;
+    }
+
+    // --- Invites ---
+    function isValidInvite(data) {
+      return data.keys().hasAll(['companyId', 'name', 'role', 'code', 'used', 'createdAt'])
+        && data.companyId is string && data.companyId.size() <= 128
+        && data.name is string && data.name.size() <= 100
+        && data.role in ['picker', 'driver']
+        && data.code is string && data.code.size() <= 50
+        && data.used is bool
+        && data.createdAt is timestamp;
+    }
+
+    match /invites/{inviteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidInvite(incoming())
+                    && exists(/databases/$(database)/documents/companies/$(incoming().companyId))
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == incoming().companyId;
+      allow update: if isSignedIn()
+                    && incoming().used == true
+                    && incoming().companyId == existing().companyId;
+    }
+
     // --- Order Validation ---
-    // order format
     function isValidOrder(data) {
-      return data.keys().hasAll(['clientName', 'status', 'createdAt', 'createdBy'])
+      return data.keys().hasAll(['clientName', 'status', 'createdAt', 'createdBy', 'companyId'])
+        && data.companyId is string && data.companyId.size() <= 128
         && data.clientName is string && data.clientName.size() <= 150
         && data.status in ['pending', 'picking', 'ready', 'delivered']
         && data.createdAt is timestamp
@@ -59,6 +97,7 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow read: if isSignedIn();
+      allow delete: if isSignedIn();
       allow create: if isSignedIn()
                     && isValidId(orderId)
                     && isValidOrder(incoming())
@@ -71,6 +110,7 @@ service cloud.firestore {
                     && isValidOrder(incoming())
                     && incoming().createdBy == existing().createdBy // immutable
                     && incoming().createdAt == existing().createdAt // immutable
+                    && incoming().companyId == existing().companyId // immutable
                     && (
                       // Update status, nfNumber, driver, notes, photos
                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'nfNumber', 'driverId', 'deliveryNotes', 'deliveryPhotos', 'deliveryStartedAt', 'deliveryCompletedAt'])
@@ -79,7 +119,8 @@ service cloud.firestore {
 
     // --- OrderBlock Validation ---
     function isValidOrderBlock(data) {
-      return data.keys().hasAll(['orderId', 'supplierName', 'status', 'items'])
+      return data.keys().hasAll(['orderId', 'supplierName', 'status', 'items', 'companyId'])
+         && data.companyId is string && data.companyId.size() <= 128
          && data.orderId is string && data.orderId.size() <= 128
          && data.supplierName is string && data.supplierName.size() <= 100
          && data.status in ['pending', 'picking', 'completed']
@@ -90,6 +131,7 @@ service cloud.firestore {
 
     match /order_blocks/{blockId} {
       allow read: if isSignedIn();
+      allow delete: if isSignedIn();
       allow create: if isSignedIn()
                     && isValidId(blockId)
                     && isValidOrderBlock(incoming())
@@ -101,9 +143,42 @@ service cloud.firestore {
                     && isValidOrderBlock(incoming())
                     && incoming().orderId == existing().orderId // immutable
                     && incoming().supplierName == existing().supplierName // immutable
+                    && incoming().companyId == existing().companyId // immutable
                     && (
                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pickerId', 'arrivedAt', 'completedAt', 'photos', 'items'])
                     );
     }
+    // --- Purchase Validation ---
+    function isValidPurchase(data) {
+      return data.keys().hasAll(['status', 'createdAt', 'createdBy', 'companyId', 'destinations'])
+        && data.companyId is string && data.companyId.size() <= 128
+        && data.status in ['receiving', 'arrived', 'separated', 'completed']
+        && data.createdAt is timestamp
+        && data.createdBy is string && data.createdBy.size() <= 128
+        && data.destinations is list
+        && data.get('originalText', '') is string && data.get('originalText', '').size() <= 6000;
+    }
+
+    match /purchases/{purchaseId} {
+      allow read: if isSignedIn();
+      allow delete: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidId(purchaseId)
+                    && isValidPurchase(incoming())
+                    && incoming().createdBy == request.auth.uid
+                    && incoming().createdAt == request.time
+                    && incoming().status == 'receiving';
+      
+      allow update: if isSignedIn()
+                    && isValidId(purchaseId)
+                    && isValidPurchase(incoming())
+                    && incoming().createdBy == existing().createdBy // immutable
+                    && incoming().createdAt == existing().createdAt // immutable
+                    && incoming().companyId == existing().companyId // immutable
+                    && (
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+                    );
+    }
+
   }
 }

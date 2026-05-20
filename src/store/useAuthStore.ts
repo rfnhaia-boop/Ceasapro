@@ -11,6 +11,7 @@ interface AuthState {
   loading: boolean;
   setUser: (user: User | null) => void;
   setProfile: (profile: UserProfile | null) => void;
+  refreshProfile: () => Promise<void>;
   initializeAuthListener: () => void;
 }
 
@@ -20,6 +21,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   setUser: (user) => set({ user }),
   setProfile: (profile) => set({ profile }),
+  refreshProfile: async () => {
+    const { user } = get();
+    if (user) {
+      const p = await getUserProfile(user.uid);
+      set({ profile: p });
+    }
+  },
   initializeAuthListener: () => {
     onAuthStateChanged(auth, async (firebaseUser) => {
       set({ user: firebaseUser });
