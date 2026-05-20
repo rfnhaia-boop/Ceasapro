@@ -3,14 +3,44 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import 'dotenv/config';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiClient: GoogleGenAI | null = null;
+
+function getGeminiClient(): GoogleGenAI {
+  if (!aiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('A chave GEMINI_API_KEY não foi encontrada nas variáveis de ambiente do servidor.');
+    }
+    aiClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiClient;
+}
 
 function cleanAndParseJSON(rawText: string): any {
   let cleaned = rawText.trim();
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  
+  // Try to find markdown json codeblock first
+  const match = cleaned.match(/```json\s*([\s\S]*?)\s*```/i) || cleaned.match(/```\s*([\s\S]*?)\s*```/i);
+  if (match) {
+    cleaned = match[1].trim();
+  } else {
+    // If no backticks, locate first { and last } or [ and ]
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
   }
+  
   return JSON.parse(cleaned);
 }
 
@@ -28,6 +58,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Text is required' });
       }
 
+      const ai = getGeminiClient();
       const response = await ai.models.generateContent({
         model: 'gemini-3.5-flash',
         contents: [
@@ -80,7 +111,14 @@ ${text}` }] }
 
       let jsonText = response.text;
       if (!jsonText) throw new Error("No text returned from Gemini API");
-      const parsedData = cleanAndParseJSON(jsonText);
+      
+      let parsedData;
+      try {
+        parsedData = cleanAndParseJSON(jsonText);
+      } catch (parseError: any) {
+        console.error("JSON parsing failed in /api/parse-list, model response:", jsonText);
+        throw new Error(`Não foi possível ler a resposta da IA como formato JSON válido: ${parseError.message}`);
+      }
       res.json(parsedData);
     } catch (error: any) {
       console.error("Gemini API Error /api/parse-list:", error);
@@ -98,6 +136,7 @@ ${text}` }] }
         return res.status(400).json({ error: 'Text is required' });
       }
 
+      const ai = getGeminiClient();
       const response = await ai.models.generateContent({
         model: 'gemini-3.5-flash',
         contents: [
@@ -143,7 +182,14 @@ ${text}` }] }
 
       let jsonText = response.text;
       if (!jsonText) throw new Error("No text returned from Gemini API");
-      const parsedData = cleanAndParseJSON(jsonText);
+      
+      let parsedData;
+      try {
+        parsedData = cleanAndParseJSON(jsonText);
+      } catch (parseError: any) {
+        console.error("JSON parsing failed in /api/parse-purchase, model response:", jsonText);
+        throw new Error(`Não foi possível ler a resposta de compra da IA como formato JSON válido: ${parseError.message}`);
+      }
       res.json(parsedData);
     } catch (error: any) {
       console.error("Gemini API Error /api/parse-purchase:", error);
