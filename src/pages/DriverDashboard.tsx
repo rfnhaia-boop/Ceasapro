@@ -4,14 +4,16 @@ import { Order } from '../lib/db';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/error';
 import { Link } from 'react-router-dom';
-import { Truck, MapPin, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Truck, MapPin, ChevronRight, CheckCircle2, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../store/useAuthStore';
+import CreateOrderModal from './CreateOrderModal';
 
 export default function DriverDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const { profile } = useAuthStore();
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   useEffect(() => {
     if (!profile?.companyId) return;
@@ -40,11 +42,18 @@ export default function DriverDashboard() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-       <div className="flex justify-between items-end border-b border-slate-200 pb-4 px-2 md:px-0">
+       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-200 pb-4 gap-4 px-2 md:px-0">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Painel de Entregas</h1>
             <p className="text-slate-500 text-xs mt-1 uppercase tracking-widest font-bold">Selecione um pedido para iniciar a rota</p>
           </div>
+          <button
+             onClick={() => setShowOrderModal(true)}
+             className="flex items-center gap-2 bg-emerald-600 text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-emerald-500 transition-all shadow-sm active:scale-95 whitespace-nowrap self-stretch sm:self-auto justify-center"
+          >
+             <Plus className="w-4 h-4 stroke-[2.5]" />
+             Lançar Novo Pedido
+          </button>
        </div>
 
        {orders.length === 0 ? (
@@ -106,6 +115,11 @@ export default function DriverDashboard() {
             ))}
           </div>
        )}
+       <CreateOrderModal 
+          isOpen={showOrderModal} 
+          onClose={() => setShowOrderModal(false)} 
+          profile={profile} 
+       />
     </div>
   );
 }

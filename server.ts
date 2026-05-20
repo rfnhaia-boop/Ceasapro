@@ -6,6 +6,14 @@ import { z } from 'zod';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+function cleanAndParseJSON(rawText: string): any {
+  let cleaned = rawText.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  }
+  return JSON.parse(cleaned);
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -21,40 +29,65 @@ async function startServer() {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: [
            { role: 'user', parts: [{ text: `Parse the following Whatsapp grocery/produce delivery list into a structured JSON format. 
-The list contains items grouped by a supplier/box indicated in parentheses (e.g. (MAURO)). 
-Sometimes there might be headers like "CAMPEAO 28: NF E BOLETO". Capture that as the clientName.
-Return ONLY valid JSON that matches this schema:
-{
-  "clientName": "Extracted client name or 'Unknown'",
-  "blocks": [
-    {
-      "supplierName": "String (e.g. MAURO)",
-      "items": [
-         { "name": "Item name", "quantity": "Quantity string (e.g. 40Un, 5Kg)" }
-      ]
-    }
-  ]
-}
+The list contains items that might be grouped by a supplier/box indicated in parentheses (e.g. (MAURO)). 
+If some or all items lack a supplier/box, group them together or assign them to a block with supplierName "Fornecedor Não Identificado" (or "Box 1" if appropriate).
+Sometimes there might be headers indicating a client name. Extract that as the clientName. If no client name is found, use 'Desconhecido'.
 
 List:
 ${text}` }] }
         ],
         config: {
            responseMimeType: "application/json",
+           responseSchema: {
+             type: "OBJECT" as any,
+             properties: {
+               clientName: {
+                 type: "STRING" as any,
+                 description: "The name of the client or 'Desconhecido' if not found."
+               },
+               blocks: {
+                 type: "ARRAY" as any,
+                 items: {
+                   type: "OBJECT" as any,
+                   properties: {
+                     supplierName: {
+                       type: "STRING" as any,
+                       description: "The name of the supplier/box, e.g. 'MAURO', or 'Fornecedor Não Identificado' if not found."
+                     },
+                     items: {
+                       type: "ARRAY" as any,
+                       items: {
+                         type: "OBJECT" as any,
+                         properties: {
+                           name: { type: "STRING" as any, description: "The clean name of the product item." },
+                           quantity: { type: "STRING" as any, description: "The quantity of the item, e.g., '4Cx', '15Cx', '10Sc'." }
+                         },
+                         required: ["name", "quantity"]
+                       }
+                     }
+                   },
+                   required: ["supplierName", "items"]
+                 }
+               }
+             },
+             required: ["clientName", "blocks"]
+           }
         }
       });
 
       let jsonText = response.text;
-      if (!jsonText) throw new Error("No text returned");
-      jsonText = jsonText.replace(/^```json/im, '').replace(/```$/im, '').trim();
-      const parsedData = JSON.parse(jsonText);
+      if (!jsonText) throw new Error("No text returned from Gemini API");
+      const parsedData = cleanAndParseJSON(jsonText);
       res.json(parsedData);
     } catch (error: any) {
-      console.error("Gemini API Error:", error);
-      res.status(500).json({ error: 'Failed to parse list', details: error.message });
+      console.error("Gemini API Error /api/parse-list:", error);
+      res.status(500).json({ 
+        error: 'Failed to parse list', 
+        details: error.stack || error.message || String(error) 
+      });
     }
   });
 
@@ -66,39 +99,58 @@ ${text}` }] }
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: [
            { role: 'user', parts: [{ text: `Parse the following Whatsapp purchase/supply list into a structured JSON format. 
 The list contains items grouped by destinations/stores/locations. Each location is usually a header like "MORADA SP:" or "MORADA JUNDIAI:".
 Inside each location, there are items, often with a supplier name in parentheses at the end or middle of the line (e.g. "(MAURO)"). If no supplier is found, use "Desconhecido".
-Return ONLY valid JSON that matches this schema:
-{
-  "destinations": [
-    {
-      "name": "String (e.g. MORADA SP)",
-      "items": [
-         { "supplier": "String", "name": "Item name without supplier or qty", "quantity": "Quantity string (e.g. 1Cx, 2Sc)" }
-      ]
-    }
-  ]
-}
 
 List:
 ${text}` }] }
         ],
         config: {
            responseMimeType: "application/json",
+           responseSchema: {
+             type: "OBJECT" as any,
+             properties: {
+               destinations: {
+                 type: "ARRAY" as any,
+                 items: {
+                   type: "OBJECT" as any,
+                   properties: {
+                     name: { type: "STRING" as any, description: "The name of the destination, e.g. MORADA SP" },
+                     items: {
+                       type: "ARRAY" as any,
+                       items: {
+                         type: "OBJECT" as any,
+                         properties: {
+                           supplier: { type: "STRING" as any, description: "The name of the supplier or 'Desconhecido' if not found." },
+                           name: { type: "STRING" as any, description: "The name of the product item." },
+                           quantity: { type: "STRING" as any, description: "The quantity of the item, e.g., '1Cx', '2Sc'." }
+                         },
+                         required: ["supplier", "name", "quantity"]
+                       }
+                     }
+                   },
+                   required: ["name", "items"]
+                 }
+               }
+             },
+             required: ["destinations"]
+           }
         }
       });
 
       let jsonText = response.text;
-      if (!jsonText) throw new Error("No text returned");
-      jsonText = jsonText.replace(/^```json/im, '').replace(/```$/im, '').trim();
-      const parsedData = JSON.parse(jsonText);
+      if (!jsonText) throw new Error("No text returned from Gemini API");
+      const parsedData = cleanAndParseJSON(jsonText);
       res.json(parsedData);
     } catch (error: any) {
-      console.error("Gemini API Error:", error);
-      res.status(500).json({ error: 'Failed to parse purchase list', details: error.message });
+      console.error("Gemini API Error /api/parse-purchase:", error);
+      res.status(500).json({ 
+        error: 'Failed to parse purchase list', 
+        details: error.stack || error.message || String(error) 
+      });
     }
   });
 

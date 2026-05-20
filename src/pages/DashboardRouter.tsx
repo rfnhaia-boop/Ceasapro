@@ -22,8 +22,10 @@ export default function DashboardRouter() {
 
   const navItems = [
     ...(role === 'admin' ? [{ path: '/', icon: LayoutDashboard, label: 'Painel' }] : []),
-    ...(role === 'picker' || role === 'admin' ? [{ path: '/picker', icon: Package, label: 'Coletas' }] : []),
-    ...(role === 'driver' || role === 'admin' ? [{ path: '/deliveries', icon: Truck, label: 'Entregas' }] : []),
+    ...(role === 'picker' || role === 'driver' || role === 'admin' ? [
+      { path: '/picker', icon: Package, label: 'Coletas' },
+      { path: '/deliveries', icon: Truck, label: 'Entregas' }
+    ] : []),
   ];
 
   return (

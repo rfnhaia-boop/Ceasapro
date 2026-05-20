@@ -136,7 +136,7 @@ service cloud.firestore {
                     && isValidId(blockId)
                     && isValidOrderBlock(incoming())
                     && incoming().status == 'pending'
-                    && exists(/databases/$(database)/documents/orders/$(incoming().orderId));
+                    && (exists(/databases/$(database)/documents/orders/$(incoming().orderId)) || existsAfter(/databases/$(database)/documents/orders/$(incoming().orderId)));
       
       allow update: if isSignedIn()
                     && isValidId(blockId)

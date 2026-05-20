@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, onSnapshot, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, updateDoc, query, where, getDocs, onSnapshot, serverTimestamp, deleteDoc, writeBatch } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from './error';
 
 export type UserRole = 'admin' | 'picker' | 'driver';
@@ -203,6 +203,12 @@ export const clearCompanyData = async (companyId: string) => {
     for (const d of blocksSnap.docs) {
       await deleteDoc(d.ref);
     }
+
+    const purchasesQ = query(collection(db, 'purchases'), where('companyId', '==', companyId));
+    const purchasesSnap = await getDocs(purchasesQ);
+    for (const d of purchasesSnap.docs) {
+      await deleteDoc(d.ref);
+    }
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, 'orders/order_blocks');
     throw error;
@@ -226,25 +232,31 @@ export interface Purchase {
 
 export const createOrder = async (orderData: Partial<Order>, blocksData: Partial<OrderBlock>[]) => {
   try {
+    const batch = writeBatch(db);
     const orderRef = doc(collection(db, 'orders'));
+    
     const orderPayload = {
       ...orderData,
       status: 'pending',
       createdAt: serverTimestamp(),
     };
-    await setDoc(orderRef, orderPayload);
+    batch.set(orderRef, orderPayload);
 
     for (const block of blocksData) {
       const blockRef = doc(collection(db, 'order_blocks'));
-      await setDoc(blockRef, {
+      batch.set(blockRef, {
         ...block,
         companyId: orderData.companyId,
         orderId: orderRef.id,
         status: 'pending',
       });
     }
+
+    await batch.commit();
+    return orderRef.id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'orders/order_blocks');
+    throw error;
   }
 };
 

@@ -65,6 +65,7 @@ export function PurchaseDetails() {
     try {
       // For each destination, create an Order
       for (const dest of purchase.destinations) {
+        if (!dest.items || dest.items.length === 0) continue;
         
         // Group items by supplier to create blocks
         const blocksMap = new Map<string, { name: string; quantity: string }[]>();
@@ -78,6 +79,8 @@ export function PurchaseDetails() {
           supplierName,
           items: items.map(it => ({ id: Math.random().toString(36).substring(7), name: it.name, quantity: it.quantity, isPicked: false }))
         }));
+        
+        if (blocksData.length === 0) continue;
 
         await createOrder({
           companyId: profile.companyId,

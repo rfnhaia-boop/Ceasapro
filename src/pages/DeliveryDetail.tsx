@@ -14,6 +14,8 @@ export default function DeliveryDetail() {
   const [order, setOrder] = useState<Order | null>(null);
   const [blocks, setBlocks] = useState<OrderBlock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blocksLoading, setBlocksLoading] = useState(true);
+  const [blocksError, setBlocksError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const { profile } = useAuthStore();
   const navigate = useNavigate();
@@ -43,11 +45,21 @@ export default function DeliveryDetail() {
 
     // Get the blocks sizes to show what was ordered
     const qb = query(collection(db, 'order_blocks'), where('orderId', '==', orderId));
-    getDocs(qb).then(snap => {
+    const unsubBlocks = onSnapshot(qb, (snap) => {
        setBlocks(snap.docs.map(d => ({id: d.id, ...d.data()} as OrderBlock)));
+       setBlocksLoading(false);
+       setBlocksError(null);
+    }, (err) => {
+       console.error("Error fetching blocks:", err);
+       setBlocks([]); // stop loading state
+       setBlocksLoading(false);
+       setBlocksError(err.message || 'Erro ao carregar os boxes');
     });
 
-    return () => unsubOrder();
+    return () => {
+      unsubOrder();
+      unsubBlocks();
+    };
   }, [orderId]);
 
   const shrinkImageSequence = (file: File): Promise<string> => {
@@ -150,7 +162,15 @@ export default function DeliveryDetail() {
          
          <div className="p-6 md:p-8 border-b border-slate-100">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest pb-3 mb-4">Resumo da Carga (Boxes)</h3>
-            {blocks.length === 0 ? <p className="text-slate-500 text-sm">Carregando...</p> : (
+            {blocksLoading ? (
+               <p className="text-slate-500 text-sm flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-500" /> Carregando...
+               </p>
+            ) : blocksError ? (
+               <p className="text-red-500 text-sm font-bold bg-red-50 p-4 rounded-xl">{blocksError}</p>
+            ) : blocks.length === 0 ? (
+               <p className="text-orange-500 text-sm font-bold bg-orange-50 p-4 rounded-xl">Nenhum box encontrado para esta carga.</p>
+            ) : (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {blocks.map(b => (
                      <div key={b.id} onClick={() => navigate(`/picker/block/${b.id}`)} className="bg-white border-2 border-slate-100 rounded-2xl p-4 flex justify-between items-center shadow-sm cursor-pointer hover:border-emerald-300 transition-all hover:shadow-md active:scale-[0.98]">

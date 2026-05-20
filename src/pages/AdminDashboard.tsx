@@ -224,11 +224,14 @@ export default function AdminDashboard() {
     if (!parsedData || !profile) return;
     setCreating(true);
     try {
-      const blocksData = parsedData.blocks.map(b => ({
-        supplierName: b.supplierName,
-        items: b.items.map((item, i) => ({ id: `item_${i}`, ...item, isPicked: false })),
-        pickerId: selectedPicker || undefined,
-      }));
+      const blocksData = parsedData.blocks.map(b => {
+        const block: any = {
+           supplierName: b.supplierName || 'Fornecedor Não Identificado',
+           items: b.items.map((item, i) => ({ id: `item_${i}`, ...item, isPicked: false }))
+        };
+        if (selectedPicker) block.pickerId = selectedPicker;
+        return block;
+      });
       
       await createOrder({
         companyId: profile.companyId,
@@ -773,7 +776,7 @@ export default function AdminDashboard() {
                              <PackageCheck className="w-4 h-4 text-emerald-500" />
                            </div>
                            <div>
-                             <h3 className="font-bold text-white text-sm tracking-wide">{block.supplierName}</h3>
+                             <h3 className="font-bold text-white text-sm tracking-wide">{block.supplierName || 'Fornecedor Não Identificado'}</h3>
                            </div>
                          </div>
                          <ul className="divide-y divide-slate-800/50 px-5 py-2 flex-1 bg-[#1a1d24]">
@@ -798,8 +801,10 @@ export default function AdminDashboard() {
                        className="w-full bg-[#090b10] border border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer appearance-none"
                      >
                        <option value="" className="bg-[#090b10]">Deixar em aberto</option>
-                       {team.filter(t => t.role === 'picker').map(p => (
-                         <option key={p.id} value={p.id} className="bg-[#090b10]">{p.name}</option>
+                       {team.map(p => (
+                         <option key={p.id} value={p.id} className="bg-[#090b10]">
+                           {p.name} ({p.role === 'picker' ? 'Separador' : p.role === 'driver' ? 'Motorista' : 'Admin'})
+                         </option>
                        ))}
                      </select>
                    </div>
