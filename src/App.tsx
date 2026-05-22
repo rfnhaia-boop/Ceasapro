@@ -23,7 +23,9 @@ export default function App() {
   }
 
   // Se logado mas sem companyId, renderizar apenas o Onboarding
-  if (user && profile && !profile.companyId) {
+  // — exceto se estiver na página /join/, que cuida do próprio onboarding via convite
+  const isJoinPath = window.location.pathname.startsWith('/join/');
+  if (user && profile && !profile.companyId && !isJoinPath) {
     return <Onboarding />;
   }
 

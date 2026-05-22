@@ -10,16 +10,11 @@ type InviteState = 'loading' | 'found' | 'invalid' | 'used' | 'claiming' | 'done
 export default function JoinPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, profile, initializeAuthListener, loading: authLoading } = useAuthStore();
+  const { user, profile, refreshProfile, loading: authLoading } = useAuthStore();
 
   const [state, setState] = useState<InviteState>('loading');
   const [invite, setInvite] = useState<{ name: string; role: string; companyId: string; docId: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Inicializa listener de auth (caso o usuário já esteja logado)
-  useEffect(() => {
-    initializeAuthListener();
-  }, [initializeAuthListener]);
 
   // Busca o convite ao montar
   useEffect(() => {
@@ -42,8 +37,10 @@ export default function JoinPage() {
     if (profile?.companyId) { navigate('/'); return; }
 
     setState('claiming');
-    joinCompany(user.uid, code!).then((companyId) => {
+    joinCompany(user.uid, code!).then(async (companyId) => {
       if (companyId) {
+        // Atualiza o perfil na memória antes de redirecionar
+        await refreshProfile();
         setState('done');
         setTimeout(() => navigate('/'), 1500);
       } else {
