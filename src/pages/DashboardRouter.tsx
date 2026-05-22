@@ -1,7 +1,7 @@
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { logout } from '../lib/firebase';
-import { LogOut, LayoutDashboard, Package, Truck } from 'lucide-react';
+import { LogOut, LayoutDashboard, Package, Truck, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AdminDashboard from './AdminDashboard';
 import PickerDashboard from './PickerDashboard';
@@ -9,6 +9,7 @@ import BlockDetail from './BlockDetail';
 import DriverDashboard from './DriverDashboard';
 import DeliveryDetail from './DeliveryDetail';
 import { PurchaseDetails } from './PurchaseDetails';
+import EmployeeManagement from './EmployeeManagement';
 
 export default function DashboardRouter() {
   const { profile } = useAuthStore();
@@ -26,6 +27,7 @@ export default function DashboardRouter() {
       { path: '/picker', icon: Package, label: 'Coletas' },
       { path: '/deliveries', icon: Truck, label: 'Entregas' }
     ] : []),
+    ...(role === 'admin' ? [{ path: '/equipe', icon: Users, label: 'Equipe' }] : []),
   ];
 
   return (
@@ -87,6 +89,7 @@ export default function DashboardRouter() {
         <Routes>
           {role === 'admin' && <Route path="/" element={<AdminDashboard />} />}
           {role === 'admin' && <Route path="/admin/purchases/:id" element={<PurchaseDetails />} />}
+          {role === 'admin' && <Route path="/equipe" element={<EmployeeManagement />} />}
           <Route path="/picker" element={<PickerDashboard />} />
           <Route path="/picker/block/:blockId" element={<BlockDetail />} />
           <Route path="/deliveries" element={<DriverDashboard />} />

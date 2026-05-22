@@ -2,10 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { OrderBlock, getUserProfile, UserProfile } from '../lib/db';
+import { OrderBlock, getUserProfile, UserProfile, checkAndAdvanceOrderStatus } from '../lib/db';
 import { handleFirestoreError, OperationType } from '../lib/error';
 import { useAuthStore } from '../store/useAuthStore';
-import { Loader2, ArrowLeft, Play, CheckSquare, Square, Check, Camera, CheckCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Play, CheckSquare, Square, Check, Camera, CheckCircle, Truck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 
@@ -126,7 +126,8 @@ export default function BlockDetail() {
         status: 'completed',
         completedAt: serverTimestamp()
       });
-      // Optionally update the parent Order status checking if all blocks are completed... logic deferred or simple manual order completion.
+      // Verifica se todos os blocos do pedido foram concluídos e avança o status
+      await checkAndAdvanceOrderStatus(block.orderId);
       navigate('/picker');
     } catch(e) {
       handleFirestoreError(e, OperationType.UPDATE, 'order_blocks');
@@ -153,6 +154,12 @@ export default function BlockDetail() {
                <div>
                   <p className="text-[10px] md:text-xs text-emerald-200/80 uppercase tracking-widest mb-1.5 font-bold">Box / Fornecedor</p>
                   <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{block.supplierName}</h1>
+                  {block.clientName && (
+                    <p className="flex items-center gap-1.5 text-emerald-300/80 text-xs mt-2 font-medium">
+                      <Truck className="w-3.5 h-3.5" />
+                      {block.clientName}
+                    </p>
+                  )}
                </div>
                {block.status === 'picking' && (
                   <div className="text-right bg-black/20 p-3 md:p-4 rounded-2xl backdrop-blur-sm border border-white/10">

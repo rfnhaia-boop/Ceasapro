@@ -4,6 +4,7 @@ import { useAuthStore } from './store/useAuthStore';
 import Login from './pages/Login';
 import DashboardRouter from './pages/DashboardRouter';
 import Onboarding from './pages/Onboarding';
+import JoinPage from './pages/JoinPage';
 import { AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -30,6 +31,8 @@ export default function App() {
     <Router>
       <AnimatePresence mode="wait">
         <Routes>
+          {/* Rota pública de convite — sem necessidade de login */}
+          <Route path="/join/:code" element={<JoinPage />} />
           <Route path="/login" element={user ? <Navigate to={"/" + window.location.search} /> : <Login />} />
           <Route path="/*" element={user ? <DashboardRouter /> : <Navigate to={"/login" + window.location.search} />} />
         </Routes>

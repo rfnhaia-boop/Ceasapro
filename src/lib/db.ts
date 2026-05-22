@@ -48,6 +48,7 @@ export interface OrderBlock {
   id: string;
   companyId: string;
   orderId: string;
+  clientName: string;
   supplierName: string;
   status: 'pending' | 'picking' | 'completed';
   items: OrderItem[];
@@ -257,6 +258,59 @@ export const createOrder = async (orderData: Partial<Order>, blocksData: Partial
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'orders/order_blocks');
     throw error;
+  }
+};
+
+// ─── Users (extra helpers) ────────────────────────────────────────────────────
+
+export const listUsers = async (): Promise<UserProfile[]> => {
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, 'users');
+    return [];
+  }
+};
+
+export const updateUserRole = async (userId: string, role: UserRole) => {
+  try {
+    await updateDoc(doc(db, 'users', userId), { role });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, 'users');
+  }
+};
+
+// ─── Invites (extra helpers) ──────────────────────────────────────────────────
+
+/** Busca um convite pelo código (campo `code`). Retorna null se não encontrar. */
+export const getInviteByCode = async (code: string): Promise<(Invite & { docId: string }) | null> => {
+  try {
+    const q = query(collection(db, 'invites'), where('code', '==', code.toUpperCase()));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    const d = snap.docs[0];
+    return { docId: d.id, ...d.data() } as Invite & { docId: string };
+  } catch (err) {
+    console.warn('getInviteByCode:', err);
+    return null;
+  }
+};
+
+// ─── Order status advancement ─────────────────────────────────────────────────
+
+/** Avança o status do pedido para 'ready' quando todos os blocos estão completos. */
+export const checkAndAdvanceOrderStatus = async (orderId: string) => {
+  try {
+    const q = query(collection(db, 'order_blocks'), where('orderId', '==', orderId));
+    const snap = await getDocs(q);
+    const blocks = snap.docs.map(d => d.data());
+    const allDone = blocks.length > 0 && blocks.every(b => b.status === 'completed');
+    if (allDone) {
+      await updateDoc(doc(db, 'orders', orderId), { status: 'ready' });
+    }
+  } catch (err) {
+    console.warn('checkAndAdvanceOrderStatus:', err);
   }
 };
 
