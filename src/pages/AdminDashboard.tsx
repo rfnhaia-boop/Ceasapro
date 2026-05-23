@@ -174,7 +174,7 @@ export default function AdminDashboard() {
     setInviteLoading(true);
     try {
        const code = await createInvite(profile.companyId, inviteName, inviteRole);
-       setGeneratedInviteLink(`${window.location.origin}/?invite=${code}`);
+       setGeneratedInviteLink(`${window.location.origin}/join/${code}`);
     } catch (err) {
        console.error(err);
        alert('Erro ao gerar convite');
@@ -227,6 +227,7 @@ export default function AdminDashboard() {
       const blocksData = parsedData.blocks.map(b => {
         const block: any = {
            supplierName: b.supplierName || 'Fornecedor Não Identificado',
+           clientName: parsedData.clientName,
            items: b.items.map((item, i) => ({ id: `item_${i}`, ...item, isPicked: false }))
         };
         if (selectedPicker) block.pickerId = selectedPicker;

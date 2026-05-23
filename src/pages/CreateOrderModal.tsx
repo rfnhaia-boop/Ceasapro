@@ -72,6 +72,7 @@ export default function CreateOrderModal({ isOpen, onClose, profile, onSuccess }
       const blocksData = parsedData.blocks.map((b: any) => {
         const block: any = {
           supplierName: b.supplierName || 'Fornecedor Não Identificado',
+          clientName: parsedData.clientName,
           items: b.items.map((item: any, i: number) => ({ id: `item_${i}`, ...item, isPicked: false }))
         };
         if (selectedPicker) {
