@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
-import { UserProfile, getUserProfile, createUserProfile } from '../lib/db';
+import { UserProfile, getUserProfile, createUserProfile, createCompany } from '../lib/db';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 
@@ -34,17 +34,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (firebaseUser) {
         let userProfile = await getUserProfile(firebaseUser.uid);
         if (!userProfile) {
-          // Attempt to create profile on first login (defaulting to admin so the app creator can test it)
+          // Primeiro login: cria perfil como admin
           await createUserProfile(firebaseUser.uid, {
             email: firebaseUser.email || '',
             name: firebaseUser.displayName || 'Novo Usuário',
-            role: 'admin', 
+            role: 'admin',
           });
           userProfile = await getUserProfile(firebaseUser.uid);
-        } else if (userProfile.role !== 'admin' && firebaseUser.email === 'rfnhaia@gmail.com') {
-          // Auto-upgrade the main user if they logged in previously and got stuck as 'picker'
+        }
+
+        // Se admin sem empresa, cria empresa automaticamente
+        if (userProfile && !userProfile.companyId) {
+          const companyName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Minha Empresa';
+          await createCompany(firebaseUser.uid, companyName);
+          userProfile = await getUserProfile(firebaseUser.uid);
+        }
+
+        if (userProfile && userProfile.role !== 'admin' && firebaseUser.email === 'rfnhaia@gmail.com') {
           await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin' });
-          userProfile.role = 'admin';
+          userProfile!.role = 'admin';
         }
         set({ profile: userProfile });
       } else {
