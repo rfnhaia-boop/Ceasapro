@@ -45,14 +45,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         // Se admin sem empresa, cria empresa automaticamente
         if (userProfile && !userProfile.companyId) {
-          const companyName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Minha Empresa';
-          await createCompany(firebaseUser.uid, companyName);
-          userProfile = await getUserProfile(firebaseUser.uid);
+          try {
+            const companyName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Minha Empresa';
+            await createCompany(firebaseUser.uid, companyName);
+            userProfile = await getUserProfile(firebaseUser.uid);
+          } catch (e) {
+            console.warn('Auto-create company failed (Firestore rules may need deploying):', e);
+          }
         }
 
         if (userProfile && userProfile.role !== 'admin' && firebaseUser.email === 'rfnhaia@gmail.com') {
-          await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin' });
-          userProfile!.role = 'admin';
+          try {
+            await updateDoc(doc(db, 'users', firebaseUser.uid), { role: 'admin' });
+            userProfile!.role = 'admin';
+          } catch (e) {
+            console.warn('Role upgrade failed:', e);
+          }
         }
         set({ profile: userProfile });
       } else {
